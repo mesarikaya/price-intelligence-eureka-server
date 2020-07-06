@@ -1,14 +1,37 @@
-pipeline {
-    agent {
-        docker {
-            image 'maven:3-alpine'
-            args '-v /root/.m2:/root/.m2'
+podTemplate(label: 'mypod', containers: [
+    containerTemplate(name: 'git', image: 'alpine/git', ttyEnabled: true, command: 'cat'),
+    containerTemplate(name: 'maven', image: 'maven:3-alpine', command: 'cat', ttyEnabled: true),
+    containerTemplate(name: 'docker', image: 'docker', command: 'cat', ttyEnabled: true)
+  ],
+  volumes: [
+    hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock'),
+  ]
+  ) {
+    node('mypod') {
+        stage('Check running containers') {
+            container('docker') {
+                // example to show you can run docker commands when you mount the socket
+                sh 'hostname'
+                sh 'hostname -i'
+                sh 'docker ps'
+            }
         }
-    }
-    stages {
-        stage('Build') {
-            steps {
-                sh 'mvn -B -DskipTests clean package'
+
+        stage('Clone repository') {
+            container('git') {
+                sh 'whoami'
+                sh 'hostname -i'
+                sh 'git clone -b master https://github.com/mesarikaya/price-intelligence-eureka-server'
+            }
+        }
+
+        stage('Maven Build') {
+            container('maven') {
+                dir('hello-world-war/') {
+                    sh 'hostname'
+                    sh 'hostname -i'
+                    sh 'mvn clean install'
+                }
             }
         }
     }
